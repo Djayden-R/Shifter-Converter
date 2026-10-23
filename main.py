@@ -184,7 +184,8 @@ def main():
     table_names: list[tuple[str]] = fetch_tables(db)
 
     # Check if table format is correct
-    if not (tuple('tablaTurnos') in table_names) and (tuple('dias') in table_names):
+    table_name_list = [row[0] for row in table_names]
+    if ('tablaTurnos' not in table_name_list) or ('dias' not in table_name_list):
         raise ValueError("File isn't a valid .Shifter file")
 
     # Get information of shift types
