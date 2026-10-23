@@ -2,7 +2,7 @@ import sqlite3
 from sqlite3 import Connection
 from typing import Any, Optional
 from datetime import datetime, date, time
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 shift_lables = ["_id", "text", "alarmTime", "alarm", "alarmOneDayBefore", "color", "textColor", "sequentialCode", "textSize", "alarmTime2", "alarm2", "alarmTwoDayBefore", "sound1", "sound2", "abbreviation", "startTime1", "endTime1", "startTime2", "endTime2", "splitShift", "performAction", "hourlyEarnings", "extraHourlyEarnings", "restTime", "shiftTime", "calculatedManualShiftDuration"]
 
@@ -71,13 +71,13 @@ class Shift():
 @dataclass
 class DayWithShift(Shift):
     date: date
-    note: str
+    note: str | None
 
 
 @dataclass
 class Day():
     date: date
-    shift_type: Optional[int]
+    shift_id: Optional[int]
     note: Optional[str]
 
 
@@ -88,8 +88,8 @@ def fetch_tables(database: Connection) -> list[tuple[str]]:
     return tables
 
 
-def fetch_shift_types(database: Connection) -> list[dict[int, Shift]]:
-    """Fetch different types of shift from the database and format them as a dict of _id and Shift object"""
+def fetch_shift_types(database: Connection) -> dict[int, Shift]:
+    """Fetch different types of shift and format them as a dict of _id and Shift object"""
 
     # Fetch all shift types from database
     query = "SELECT * FROM tablaTurnos"
@@ -99,10 +99,10 @@ def fetch_shift_types(database: Connection) -> list[dict[int, Shift]]:
     dict_shifts: list = [dict(zip(shift_lables, shift)) for shift in sql_shifts]
 
     # Turn every shift into a Shift object
-    shifts: list[dict[int, Shift]] = []
+    shifts: dict[int, Shift] = {}
     for shift in dict_shifts:
         shift_object = Shift.from_dict(shift)
-        shifts.append({shift_object._id: shift_object})
+        shifts[shift_object._id] = shift_object
 
     return shifts
 
@@ -129,6 +129,22 @@ def fetch_calendar(database: Connection) -> list[Any]:
         formatted_calendar.append(Day(date_object, shift_type, note))
 
     return formatted_calendar
+
+
+def combine_calendar_and_shifts(days: list[Day], shifts: dict[int, Shift]) -> list[Day | DayWithShift]:
+    """Combine calendar entries with details about shifts"""
+    combined_calendar: list[Day | DayWithShift] = []
+
+    for day in days:
+        shift_id = day.shift_id
+        if shift_id:
+            shift: Shift = shifts[shift_id]
+            shift_day = DayWithShift(date=day.date, note=day.note, **asdict(shift))
+            combined_calendar.append(shift_day)
+        else:
+            combined_calendar.append(day)
+
+    return combined_calendar
 
 
 """ Only contains language code """
@@ -172,12 +188,13 @@ def main():
         raise ValueError("File isn't a valid .Shifter file")
 
     # Get information of shift types
-    shift_types: list[dict[int, Shift]] = fetch_shift_types(db)
-    print(shift_types)
+    shift_types: dict[int, Shift] = fetch_shift_types(db)
 
     # Get all days and their corresponding shift_type and notes
-    formatted_calendar: list[Day] = fetch_calendar(db)
-    print("\n\n" + str(formatted_calendar))
+    calendar: list[Day] = fetch_calendar(db)
+
+    combined_calendar = combine_calendar_and_shifts(calendar, shift_types)
+    print(combined_calendar)
 
     db.close()
 
