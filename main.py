@@ -21,20 +21,20 @@ class Shift():
     alarmTime2: time
     alarm2: bool
     alarmTwoDayBefore: bool
-    sound1: str
-    sound2: str
+    sound1: Optional[str]
+    sound2: Optional[str]
     abbreviation: str
     startTime1: time
     endTime1: time
     startTime2: time
     endTime2: time
     splitShift: bool
-    performAction: str
-    hourlyEarnings: float
-    extraHourlyEarnings: float
-    restTime: float
-    shiftTime: float
-    calculatedManualShiftDuration: float
+    performAction: Optional[str]
+    hourlyEarnings: Optional[float]
+    extraHourlyEarnings: Optional[float]
+    restTime: Optional[float]
+    shiftTime: Optional[float]
+    calculatedManualShiftDuration: Optional[float]
 
     @classmethod
     def from_dict(cls, shift: dict[str, Any]):
