@@ -174,12 +174,9 @@ def add_ics_event(calendar: ics.Calendar, name: str, start_date: date, start_tim
 
     if all_day:
         event.make_all_day()
-        event.uid = f"note-{start_date.strftime('%Y-%m-%d')}"
+        event.uid = f"note-{start_date.strftime('%Y-%m-%d')}-{name[:10].replace(' ', '')}"
     elif end_time:
-        two_day_event = end_time < start_time
-        end_date = start_date if not two_day_event else start_date + timedelta(days=1)
-        event.end = datetime.combine(end_date, end_time).astimezone(ZoneInfo("UTC"))
-        event.uid = f"{abreviation if abreviation else 'shift'}-{start_date.strftime('%Y-%m-%d')}"
+        event.uid = f"{abreviation if abreviation else 'shift'}-{start_date.strftime('%Y-%m-%d')}-{start_time.strftime('%H%M')}"
     else:
         print("ERROR: no end time found")
 
