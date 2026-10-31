@@ -1,10 +1,14 @@
 import sqlite3
 from sqlite3 import Connection
 from typing import Any, Optional
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from dataclasses import dataclass, asdict
+import ics
+import re
+from zoneinfo import ZoneInfo
 
 shift_lables = ["_id", "text", "alarmTime", "alarm", "alarmOneDayBefore", "color", "textColor", "sequentialCode", "textSize", "alarmTime2", "alarm2", "alarmTwoDayBefore", "sound1", "sound2", "abbreviation", "startTime1", "endTime1", "startTime2", "endTime2", "splitShift", "performAction", "hourlyEarnings", "extraHourlyEarnings", "restTime", "shiftTime", "calculatedManualShiftDuration"]
+local_timezone = datetime.now().astimezone().tzinfo
 
 
 @dataclass
@@ -63,7 +67,7 @@ class Shift():
         for label in time_labels:
             time_value = shift.get(label)
             if time_value:
-                datetime_object = datetime.strptime(time_value, '%H:%M').time()
+                datetime_object = datetime.strptime(time_value, '%H:%M').time().replace(tzinfo=local_timezone)
                 shift[label] = datetime_object
         return cls(**shift)
 
@@ -118,12 +122,20 @@ def fetch_calendar(database: Connection) -> list[Any]:
 
     for day in calendar:
         # Turn SQL date into a datetime.date object
-        date_str = str(day[0])  # Format is YYYYMMDD
-        date_object = datetime.strptime(date_str, "%Y%m%d").date()
+        try:
+            date_str = str(day[0])  # Format is YYYYMMDD
+            date_object = datetime.strptime(date_str, "%Y%m%d").date()
+        except ValueError:
+            continue
 
         # Get shift type and note of day
         shift_type: int | None = day[1]
         note: str | None = day[2]
+
+        # Unformated notes look like this: <p dir="ltr">TEXT_HERE</p>
+        # To parse this into normal text a regex match is used
+        if note:
+            note = re.findall(r'>(.*?)<', note)[0]
 
         # Add formatted day to list as a Day object
         formatted_calendar.append(Day(date_object, shift_type, note))
@@ -147,40 +159,53 @@ def combine_calendar_and_shifts(days: list[Day], shifts: dict[int, Shift]) -> li
     return combined_calendar
 
 
-""" Only contains language code """
-# query_2 = "SELECT * FROM android_metadata"
-# android_metadata = db.execute(query_2)
-# print(f"android_metadata: {android_metadata.fetchall()}")
+def add_ics_event(calendar: ics.Calendar, name: str, start_date: date, start_time: time=time(0,0).replace(tzinfo=local_timezone), end_time=None, all_day=False, abreviation=None):
+    event = ics.Event()
 
-""" Mostly a bunch of None's, only fecha has the date and notas has the note with html tags and nota1 as shift type"""
-# query_2 = "SELECT * FROM dias"
-# dias = db.execute(query_2)
-# print(f"dias: {dias.fetchall()}")
+    event.name = name
+    event.begin = datetime.combine(start_date, start_time).astimezone(ZoneInfo("UTC"))
 
-""" Only shows name of calendar """
-# query_2 = "SELECT * FROM nombreCalendario"
-# nombreCalendario = db.execute(query_2)
-# print(f"nombreCalendario: {nombreCalendario.fetchall()}")
+    if all_day:
+        event.make_all_day()
+        event.uid = f"note-{start_date.strftime('%Y-%m-%d')}"
+    elif end_time:
+        two_day_event = end_time < start_time
+        end_date = start_date if not two_day_event else start_date + timedelta(days=1)
+        event.end = datetime.combine(end_date, end_time).astimezone(ZoneInfo("UTC"))
+        event.uid = f"{abreviation if abreviation else 'shift'}-{start_date.strftime('%Y-%m-%d')}"
+    else:
+        print("ERROR: no end time found")
 
-""" No clue """
-# query_2 = "SELECT * FROM patrones"
-# patrones = db.execute(query_2)
-# print(f"patrones: {patrones.fetchall()}")
+    calendar.events.add(event)
+    global event_amount
+    event_amount += 1
 
-""" Also no clue """
-# query_2 = "SELECT * FROM contenidoPatron"
-# contenidoPatron = db.execute(query_2)
-# print(f"contenidoPatron: {contenidoPatron.fetchall()}")
 
-""" Holidays or something, but it doesn't return anything by default """
-# query_2 = "SELECT * FROM festivos"
-# festivos = db.execute(query_2)
-# print(f"festivos: {festivos.fetchall()}")
+def shifts_to_ics(shifts: list[Day | DayWithShift]):
+    ics_calendar = ics.Calendar()
+
+    for day in shifts:
+        if isinstance(day, DayWithShift):
+            if day.startTime1 == day.endTime1:
+                add_ics_event(ics_calendar, day.text, day.date, abreviation=day.abbreviation, all_day=True)
+            else:
+                add_ics_event(ics_calendar, day.text, day.date, start_time=day.startTime1, end_time=day.endTime1, abreviation=day.abbreviation)
+                if day.startTime2 and (day.startTime2.hour != 0 or day.startTime2.minute != 0):
+                    print("Ooga")
+                    add_ics_event(ics_calendar, day.text, day.date, start_time=day.startTime2, end_time=day.endTime2, abreviation=f"{day.abbreviation}-2")
+        if day.note:
+            add_ics_event(ics_calendar, day.note, day.date, all_day=True)
+
+    with open('output_calendar.ics', 'w') as f:
+        f.write(ics_calendar.serialize())
 
 
 def main():
+    global event_amount
+    event_amount = 0
     # Open .Shifter file
-    db = sqlite3.connect("Testing.Shifter")
+    # db = sqlite3.connect("Testing.Shifter")
+    db = sqlite3.connect("Cargill.Shifter")
     table_names: list[tuple[str]] = fetch_tables(db)
 
     # Check if table format is correct
@@ -194,8 +219,12 @@ def main():
     # Get all days and their corresponding shift_type and notes
     calendar: list[Day] = fetch_calendar(db)
 
+    # Add shift details to the calendar items
     combined_calendar = combine_calendar_and_shifts(calendar, shift_types)
     print(combined_calendar)
+
+    shifts_to_ics(combined_calendar)
+    print(event_amount)
 
     db.close()
 
