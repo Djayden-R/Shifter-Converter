@@ -120,17 +120,24 @@ def fetch_calendar(database: Connection) -> list[Any]:
 
     formatted_calendar: list[Day] = []
 
-    for day in calendar:
+    for calendar_day in calendar:
         # Turn SQL date into a datetime.date object
         try:
-            date_str = str(day[0])  # Format is YYYYMMDD
-            date_object = datetime.strptime(date_str, "%Y%m%d").date()
+            insane_date_str = str(calendar_day[0])  # Format is YYYYMMDD, but the month is apperantly in integers, so january is 00, this has wasted 2 hours of my life (╯°□°)╯︵ ┻━┻
+            year = insane_date_str[:4]
+            month = int(insane_date_str[4:6]) + 1
+            month_str = f"{month:02d}"
+            day = insane_date_str[6:]
+
+            sane_date_str = f"{year}{month_str}{day}"
+
+            date_object = datetime.strptime(sane_date_str, "%Y%m%d").date()
         except ValueError:
             continue
 
         # Get shift type and note of day
-        shift_type: int | None = day[1]
-        note: str | None = day[2]
+        shift_type: int | None = calendar_day[1]
+        note: str | None = calendar_day[2]
 
         # Unformated notes look like this: <p dir="ltr">TEXT_HERE</p>
         # To parse this into normal text a regex match is used
