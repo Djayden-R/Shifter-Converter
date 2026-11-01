@@ -2,10 +2,10 @@ from rich.console import Console
 from rich.prompt import Prompt
 from rich.panel import Panel
 import sqlite3
-from converter import main as converter_main
+from .converter import main as converter_main
 import questionary
 import os
-from converter import validate_shifter_file
+from .converter import validate_shifter_file
 
 cwd = os.getcwd()
 console = Console()
