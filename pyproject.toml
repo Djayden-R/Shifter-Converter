@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shifter-converter"
+version = "0.0.1"
+description = "A program for converting .Shifter files into .ics files"
+readme = "README.md"
+dependencies = [
+    "ics>=0.7.3",
+    "tzlocal>=5.3.1",
+    "rich>=15.0.0"
+]
+
+[project.scripts]
+shifter-converter = "shifter_converter.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
