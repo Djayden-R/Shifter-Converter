@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shifter-converter"
-version = "0.0.1"
+version = "0.0.2"
 description = "A program for converting .Shifter files into .ics files"
 readme = "README.md"
 dependencies = [
