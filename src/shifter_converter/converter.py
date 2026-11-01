@@ -1,4 +1,3 @@
-import sqlite3
 from sqlite3 import Connection
 from typing import Any, Optional
 from datetime import datetime, date, time, timedelta
@@ -6,6 +5,7 @@ from dataclasses import dataclass, asdict
 import ics
 import re
 from tzlocal import get_localzone
+import os
 
 shift_lables = ["_id", "text", "alarmTime", "alarm", "alarmOneDayBefore", "color", "textColor", "sequentialCode", "textSize", "alarmTime2", "alarm2", "alarmTwoDayBefore", "sound1", "sound2", "abbreviation", "startTime1", "endTime1", "startTime2", "endTime2", "splitShift", "performAction", "hourlyEarnings", "extraHourlyEarnings", "restTime", "shiftTime", "calculatedManualShiftDuration"]
 
@@ -84,6 +84,17 @@ class Day():
     date: date
     shift_id: Optional[int]
     note: Optional[str]
+
+
+def validate_shifter_file(db: Connection):
+    table_names: list[tuple[str]] = fetch_tables(db)
+
+    # Check if table format is correct
+    table_name_list = [row[0] for row in table_names]
+    if ('tablaTurnos' not in table_name_list) or ('dias' not in table_name_list):
+        return False
+    else:
+        return True
 
 
 def fetch_tables(database: Connection) -> list[tuple[str]]:
@@ -184,11 +195,9 @@ def add_ics_event(calendar: ics.Calendar, name: str, start_date: date, start_tim
         print("ERROR: no end time found")
 
     calendar.events.add(event)
-    global event_amount
-    event_amount += 1
 
 
-def shifts_to_ics(shifts: list[Day | DayWithShift]):
+def shifts_to_ics(shifts: list[Day | DayWithShift], output_dir):
     ics_calendar = ics.Calendar()
 
     for day in shifts:
@@ -202,23 +211,11 @@ def shifts_to_ics(shifts: list[Day | DayWithShift]):
         if day.note:
             add_ics_event(ics_calendar, day.note, day.date, all_day=True)
 
-    with open('output_calendar.ics', 'w') as f:
+    with open(os.path.join(output_dir, 'output_calendar.ics'), 'w') as f:
         f.write(ics_calendar.serialize())
 
 
-def main():
-    global event_amount
-    event_amount = 0
-    # Open .Shifter file
-    # db = sqlite3.connect("Testing.Shifter")
-    db = sqlite3.connect("Cargill.Shifter")
-    table_names: list[tuple[str]] = fetch_tables(db)
-
-    # Check if table format is correct
-    table_name_list = [row[0] for row in table_names]
-    if ('tablaTurnos' not in table_name_list) or ('dias' not in table_name_list):
-        raise ValueError("File isn't a valid .Shifter file")
-
+def main(db: Connection, output_dir: str):
     # Get information of shift types
     shift_types: dict[int, Shift] = fetch_shift_types(db)
 
@@ -228,11 +225,6 @@ def main():
     # Add shift details to the calendar items
     combined_calendar = combine_calendar_and_shifts(calendar, shift_types)
 
-    shifts_to_ics(combined_calendar)
-    print(event_amount)
+    shifts_to_ics(combined_calendar, output_dir)
 
     db.close()
-
-
-if __name__ == "__main__":
-    main()
