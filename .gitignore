@@ -3,3 +3,5 @@
 /.venv
 output_calendar.ics
 __pycache__
+dist
+*.egg-info
