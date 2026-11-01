@@ -2,3 +2,4 @@
 .flake8
 /.venv
 output_calendar.ics
+__pycache__
