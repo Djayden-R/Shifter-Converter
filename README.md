@@ -18,6 +18,12 @@ To install the program, just use pip:
 pip install shifter-converter 
 ```
 
+Then you can call it using the name of the program:
+
+```shell
+shifter-converter 
+```
+
 Then you are presented with three options: converting a file, validating a file, or quiting the program. If you choose the first option you can select the file and then an output directory and then you get your .ics version of the .Shifter file.
 
 ## How can I test if it works?
